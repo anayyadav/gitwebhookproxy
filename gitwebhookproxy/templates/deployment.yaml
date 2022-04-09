@@ -1,0 +1,126 @@
+apiVersion: {{ template "deployment.apiVersion" . }}
+kind: Deployment
+metadata:
+  namespace: {{ .Values.gitWebhookProxy.namespace }}
+  labels:
+{{ include "gitwebhookproxy.labels.stakater" . | indent 4 }}
+{{ include "gitwebhookproxy.labels.chart" . | indent 4 }}
+  annotations:
+  {{- if .Values.gitWebhookProxy.useCustomName }}
+    configmap.reloader.stakater.com/reload: {{ .Values.gitWebhookProxy.customName }}
+    secret.reloader.stakater.com/reload: {{ .Values.gitWebhookProxy.customName }}
+  {{- else }}
+    configmap.reloader.stakater.com/reload: {{ template "gitwebhookproxy.name" . }}
+    secret.reloader.stakater.com/reload: {{ template "gitwebhookproxy.name" . }}
+  {{- end }}
+{{- if .Values.gitWebhookProxy.useCustomName }}
+  name: {{ .Values.gitWebhookProxy.customName }}
+{{- else }}
+  name: {{ template "gitwebhookproxy.name" . }}
+{{- end }}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+{{ include "gitwebhookproxy.labels.selector" . | indent 6 }}
+  template:
+    metadata:
+      labels:
+{{ include "gitwebhookproxy.labels.selector" . | indent 8 }}
+    spec:
+      {{- with .Values.gitWebhookProxy.podSecurityContext }}
+      securityContext: {{ . | toYaml | nindent 8 }}
+      {{- end }}
+      containers:
+      - env:
+        - name: KUBERNETES_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: GWP_PROVIDER
+          valueFrom:
+            configMapKeyRef:
+              key: provider
+            {{- if .Values.gitWebhookProxy.useCustomName }}
+              name: {{ .Values.gitWebhookProxy.customName }}
+            {{- else }}
+              name: {{ template "gitwebhookproxy.name" . }}
+            {{- end }}
+        - name: GWP_UPSTREAMURL
+          valueFrom:
+            configMapKeyRef:
+              key: upstreamURL
+            {{- if .Values.gitWebhookProxy.useCustomName }}
+              name: {{ .Values.gitWebhookProxy.customName }}
+            {{- else }}
+              name: {{ template "gitwebhookproxy.name" . }}
+            {{- end }}
+        - name: GWP_ALLOWEDPATHS
+          valueFrom:
+            configMapKeyRef:
+              key: allowedPaths
+            {{- if .Values.gitWebhookProxy.useCustomName }}
+              name: {{ .Values.gitWebhookProxy.customName }}
+            {{- else }}
+              name: {{ template "gitwebhookproxy.name" . }}
+            {{- end }}
+        - name: GWP_IGNOREDUSERS
+          valueFrom:
+            configMapKeyRef:
+              key: ignoredUsers
+            {{- if .Values.gitWebhookProxy.useCustomName }}
+              name: {{ .Values.gitWebhookProxy.customName }}
+            {{- else }}
+              name: {{ template "gitwebhookproxy.name" . }}
+            {{- end }}
+        - name: GWP_ALLOWEDUSERS
+          valueFrom:
+            configMapKeyRef:
+              key: allowedUsers
+            {{- if .Values.gitWebhookProxy.useCustomName }}
+              name: {{ .Values.gitWebhookProxy.customName }}
+            {{- else }}
+              name: {{ template "gitwebhookproxy.name" . }}
+            {{- end }}
+        - name: GWP_SECRET
+          valueFrom:
+            secretKeyRef:
+              key: secret
+            {{- if .Values.gitWebhookProxy.existingSecretName }}
+              name: {{ .Values.gitWebhookProxy.existingSecretName }}
+            {{- else if .Values.gitWebhookProxy.useCustomName }}
+              name: {{ .Values.gitWebhookProxy.customName }}
+            {{- else }}
+              name: {{ template "gitwebhookproxy.name" . }}
+            {{- end }}
+        image: "{{ .Values.gitWebhookProxy.image.name }}:{{ .Values.gitWebhookProxy.image.tag }}"
+        imagePullPolicy: {{ .Values.gitWebhookProxy.image.pullPolicy }}
+        {{- with .Values.gitWebhookProxy.securityContext }}
+        securityContext: {{ . | toYaml | nindent 10 }}
+        {{- end }}
+      {{- if .Values.gitWebhookProxy.useCustomName }}
+        name: {{ .Values.gitWebhookProxy.customName }}
+      {{- else }}
+        name: {{ template "gitwebhookproxy.name" . }}
+      {{- end }}
+        livenessProbe:
+          failureThreshold: 5
+          httpGet:
+            path: /health
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 15
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /health
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5

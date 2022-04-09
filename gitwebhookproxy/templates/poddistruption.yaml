@@ -1,0 +1,17 @@
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  namespace: {{ .Values.gitWebhookProxy.namespace }}
+{{- if .Values.gitWebhookProxy.useCustomName }}
+  name: {{ .Values.gitWebhookProxy.customName }}
+{{- else }}
+  name: {{ template "gitwebhookproxy.name" . }}
+{{- end }}
+  labels:
+{{ include "gitwebhookproxy.labels.stakater" . | indent 4 }}
+{{ include "gitwebhookproxy.labels.chart" . | indent 4 }}
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+{{ include "gitwebhookproxy.labels.selector" . | indent 6 }}
